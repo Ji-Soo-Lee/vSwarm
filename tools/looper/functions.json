@@ -1,0 +1,9 @@
+{
+    "functions": [
+        {
+            "name": "infinite-loop",
+            "file": "infinite_looop.yaml",
+            "count": 1
+        }
+    ]
+}
