@@ -26,8 +26,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"os/exec"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
@@ -57,8 +57,8 @@ var (
 
 func main() {
 	funcPath := flag.String("funcPath", "./configs/knative_workloads", "Path to the folder with *.yml files")
-	funcJSONFile := flag.String("jsonFile", "./tools/deployer/functions.json", "Path to the JSON file with functions to deploy")
-	endpointsFile := flag.String("endpointsFile", "endpoints.json", "File with endpoints' metadata")
+	funcJSONFile := flag.String("jsonFile", "./tools/looper/functions.json", "Path to the JSON file with functions to deploy")
+	loopingFile := flag.String("loopingFile", "looping.json", "File with looping' metadata")
 	deploymentConcurrency := flag.Int("conc", 5, "Number of functions to deploy concurrently (for serving)")
 
 	flag.Parse()
@@ -69,7 +69,7 @@ func main() {
 
 	urls := deploy(*funcPath, funcSlice, *deploymentConcurrency)
 
-	writeEndpoints(*endpointsFile, urls)
+	writeLooping(*loopingFile, urls)
 
 	log.Infoln("Deployment finished")
 }
@@ -136,16 +136,16 @@ func deployFunction(funcName, filePath string) {
 	log.Info("Deployed function ", funcName)
 }
 
-func writeEndpoints(filePath string, urls []string) {
-	var endpoints []endpoint.Endpoint
+func writeLooping(filePath string, urls []string) {
+	var looping []endpoint.Endpoint
 	for _, url := range urls {
-		endpoints = append(endpoints, endpoint.Endpoint{
+		looping = append(looping, endpoint.Endpoint{
 			Hostname: url,
 			Eventing: false,
 			Matchers: nil,
 		})
 	}
-	data, err := json.MarshalIndent(endpoints, "", "\t")
+	data, err := json.MarshalIndent(looping, "", "\t")
 	if err != nil {
 		log.Fatalln("failed to marshal", err)
 	}
