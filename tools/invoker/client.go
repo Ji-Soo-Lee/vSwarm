@@ -112,7 +112,7 @@ func main() {
 
 	realRPS := runExperiment(endpoints, *runDuration, *rps)
 
-	writeLatencies(realRPS, *latencyOutputFile)
+	writeLatenciesWithFunc(realRPS, *latencyOutputFile)
 	if *funcDurEnableFlag {
 		writeFunctionDurations(*funcDurationOutputFile)
 	}
@@ -161,7 +161,9 @@ loop:
 
 	duration := time.Since(start).Seconds()
 	realRPS = float64(completed) / duration
-	// addDurationsWithFunc(End())	// FIXME
+	// addDurationsWithFunc(End()) // FIXME
+	// last element of endpoints is the function name of the last invocation
+	addDurationsWithFunc([]string{endpoints[len(endpoints)-1].Hostname}, []time.Duration{time.Since(start)})
 	log.Infof("Issued / completed requests: %d, %d", issued, completed)
 	log.Infof("Real / target RPS: %.2f / %v", realRPS, targetRPS)
 	log.Println("Experiment finished!")
@@ -264,23 +266,52 @@ func startMeasurement(msg string) (string, time.Time) {
 func getDurationWithFunc(msg string, start time.Time) {
 	latency := time.Since(start)
 	log.Debugf("Invoked %v in %v usec\n", msg, latency.Microseconds())
-	addDurationsWithFunc(msg, []time.Duration{latency})
+	addDurationsWithFunc([]string{msg}, []time.Duration{latency})
 }
 
-func addDurationsWithFunc(msg string, ds []time.Duration) {
+func addDurationsWithFunc(msg []string, ds []time.Duration) {
+	log.Debugf("%v : %v\n", msg, ds)
 	latSliceWithFunc.Lock()
 	for _, d := range ds {
-		latSliceWithFunc.slice = append(latSliceWithFunc.slice, LatencyRecord{
-			funcName: msg,
-			latency:  d.Microseconds(),
-		})
+		for _, m := range msg {
+			latSliceWithFunc.slice = append(latSliceWithFunc.slice, LatencyRecord{
+				funcName: m,
+				latency:  d.Microseconds(),
+			})
+		}
 	}
 	latSliceWithFunc.Unlock()
 }
 
-func writeLatencies(rps float64, latencyOutputFile string) {
-	latSlice.Lock()
-	defer latSlice.Unlock()
+// func writeLatencies(rps float64, latencyOutputFile string) {
+// 	latSlice.Lock()
+// 	defer latSlice.Unlock()
+
+// 	fileName := fmt.Sprintf("rps%.2f_%s", rps, latencyOutputFile)
+// 	log.Info("The measured latencies are saved in ", fileName)
+
+// 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+
+// 	if err != nil {
+// 		log.Fatal("Failed creating file: ", err)
+// 	}
+
+// 	datawriter := bufio.NewWriter(file)
+
+// 	for _, lat := range latSlice.slice {
+// 		_, err := datawriter.WriteString(strconv.FormatInt(lat, 10) + "\n")
+// 		if err != nil {
+// 			log.Fatal("Failed to write the latencies to a file ", err)
+// 		}
+// 	}
+
+// 	datawriter.Flush()
+// 	file.Close()
+// }
+
+func writeLatenciesWithFunc(rps float64, latencyOutputFile string) {
+	latSliceWithFunc.Lock()
+	defer latSliceWithFunc.Unlock()
 
 	fileName := fmt.Sprintf("rps%.2f_%s", rps, latencyOutputFile)
 	log.Info("The measured latencies are saved in ", fileName)
@@ -293,8 +324,9 @@ func writeLatencies(rps float64, latencyOutputFile string) {
 
 	datawriter := bufio.NewWriter(file)
 
-	for _, lat := range latSlice.slice {
-		_, err := datawriter.WriteString(strconv.FormatInt(lat, 10) + "\n")
+	for _, latRecord := range latSliceWithFunc.slice {
+		line := fmt.Sprintf("%s,%d\n", latRecord.funcName, latRecord.latency)
+		_, err := datawriter.WriteString(line)
 		if err != nil {
 			log.Fatal("Failed to write the latencies to a file ", err)
 		}
