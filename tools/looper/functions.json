@@ -1,9 +1,11 @@
 {
-    "functions": [
-        {
-            "name": "infinite-loop",
-            "file": "infinite_looop.yaml",
-            "count": 1
-        }
-    ]
+        "functions": [
+                {
+                        "name": "infinite-loop",
+                        "file": "infinite-loop.yaml",
+                        "count": 1
+                }
+        ]
 }
+
+
