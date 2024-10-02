@@ -26,11 +26,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"os/exec"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/vhive-serverless/vSwarm/tools/endpoint"
 )
 
 // Functions is an object for unmarshalled JSON with functions to deploy.
@@ -57,6 +58,7 @@ var (
 func main() {
 	funcPath := flag.String("funcPath", "./configs/knative_workloads", "Path to the folder with *.yml files")
 	funcJSONFile := flag.String("jsonFile", "./tools/looper/functions.json", "Path to the JSON file with functions to deploy")
+	endpointFile := flag.String("endpointFile", "loop.json", "File with endpoint's metadata")
 	deploymentConcurrency := flag.Int("conc", 5, "Number of functions to deploy concurrently (for serving)")
 
 	flag.Parse()
@@ -65,7 +67,9 @@ func main() {
 
 	funcSlice := getFuncSlice(*funcJSONFile)
 
-	deploy(*funcPath, funcSlice, *deploymentConcurrency)
+	urls := deploy(*funcPath, funcSlice, *deploymentConcurrency)
+
+	writeendpoint(*endpointFile, urls)
 
 	log.Infoln("Deployment finished")
 }
@@ -132,3 +136,20 @@ func deployFunction(funcName, filePath string) {
 	log.Info("Deployed function ", funcName)
 }
 
+func writeendpoint(filePath string, urls []string) {
+	var endpoint []endpoint.Endpoint
+	for _, url := range urls {
+		endpoint = append(endpoint, endpoint.Endpoint{
+			Hostname: url,
+			Eventing: false,
+			Matchers: nil,
+		})
+	}
+	data, err := json.MarshalIndent(endpoint, "", "\t")
+	if err != nil {
+		log.Fatalln("failed to marshal", err)
+	}
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		log.Fatalln("failed to write", err)
+	}
+}
