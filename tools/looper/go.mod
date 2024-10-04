@@ -1,4 +1,4 @@
-module github.com/vhive-serverless/vSwarm/looper
+module github.com/vhive-serverless/vSwarm/tools/looper
 
 go 1.21
 
@@ -8,5 +8,3 @@ require (
 )
 
 require golang.org/x/sys v0.22.0 // indirect
-
-

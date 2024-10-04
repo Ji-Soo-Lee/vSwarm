@@ -58,7 +58,7 @@ var (
 func main() {
 	funcPath := flag.String("funcPath", "./configs/knative_workloads", "Path to the folder with *.yml files")
 	funcJSONFile := flag.String("jsonFile", "./tools/looper/functions.json", "Path to the JSON file with functions to deploy")
-	endpointFile := flag.String("endpointFile", "loop.json", "File with endpoint's metadata")
+	endpointsFile := flag.String("endpointsFile", "loop.json", "File with endpoints' metadata")
 	deploymentConcurrency := flag.Int("conc", 5, "Number of functions to deploy concurrently (for serving)")
 
 	flag.Parse()
@@ -69,7 +69,7 @@ func main() {
 
 	urls := deploy(*funcPath, funcSlice, *deploymentConcurrency)
 
-	writeendpoint(*endpointFile, urls)
+	writeEndpoints(*endpointsFile, urls)
 
 	log.Infoln("Deployment finished")
 }
@@ -136,16 +136,16 @@ func deployFunction(funcName, filePath string) {
 	log.Info("Deployed function ", funcName)
 }
 
-func writeendpoint(filePath string, urls []string) {
-	var endpoint []endpoint.Endpoint
+func writeEndpoints(filePath string, urls []string) {
+	var endpoints []endpoint.Endpoint
 	for _, url := range urls {
-		endpoint = append(endpoint, endpoint.Endpoint{
+		endpoints = append(endpoints, endpoint.Endpoint{
 			Hostname: url,
 			Eventing: false,
 			Matchers: nil,
 		})
 	}
-	data, err := json.MarshalIndent(endpoint, "", "\t")
+	data, err := json.MarshalIndent(endpoints, "", "\t")
 	if err != nil {
 		log.Fatalln("failed to marshal", err)
 	}
