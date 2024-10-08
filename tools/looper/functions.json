@@ -3,7 +3,7 @@
                 {
                         "name": "infinite-loop",
                         "file": "infinite-loop.yaml",
-                        "count": 1
+                        "count": 10
                 }
         ]
 }
