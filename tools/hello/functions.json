@@ -1,0 +1,11 @@
+{
+        "functions": [
+                {
+                        "name": "helloworld-node",
+                        "file": "helloworld-node.yaml",
+                        "count": 10
+                }
+        ]
+}
+
+
