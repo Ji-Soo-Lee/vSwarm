@@ -1,0 +1,11 @@
+{
+        "functions": [
+                {
+                        "name": "z-helloworld",
+                        "file": "helloworld.yaml",
+                        "count": 20
+                }
+        ]
+}
+
+
