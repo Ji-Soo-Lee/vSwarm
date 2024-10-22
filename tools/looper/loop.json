@@ -1,9 +1,9 @@
 {
         "functions": [
                 {
-                        "name": "infinite-loop",
+                        "name": "z-infinite-loop",
                         "file": "infinite-loop.yaml",
-                        "count": 10
+                        "count": 20
                 }
         ]
 }
