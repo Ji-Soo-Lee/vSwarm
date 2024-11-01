@@ -57,7 +57,7 @@ var (
 
 func main() {
 	funcPath := flag.String("funcPath", "./configs/knative_workloads", "Path to the folder with *.yml files")
-	funcJSONFile := flag.String("jsonFile", "./tools/looper/loop.json", "Path to the JSON file with functions to deploy")
+	funcJSONFile := flag.String("jsonFile", "./tools/looper/functions.json", "Path to the JSON file with functions to deploy")
 	endpointsFile := flag.String("endpointsFile", "loop.json", "File with endpoints' metadata")
 	deploymentConcurrency := flag.Int("conc", 5, "Number of functions to deploy concurrently (for serving)")
 
