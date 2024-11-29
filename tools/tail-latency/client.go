@@ -75,6 +75,9 @@ func main() {
 	zipkin := flag.String("zipkin", "http://localhost:9411/api/v2/spans", "zipkin url")
 	debug := flag.Bool("dbg", false, "Enable debug logging")
 	grpcTimeout = time.Duration(*flag.Int("grpcTimeout", 30, "Timeout in seconds for gRPC requests")) * time.Second
+	startRPS := flag.Float64("startRPS", 200.0, "Start RPS")
+	endRPS := flag.Float64("endRPS", 350.0, "End RPS")
+	rpsStep := flag.Float64("rpsStep", 5.0, "RPS step")
 
 	flag.Parse()
 
@@ -110,7 +113,8 @@ func main() {
 		defer shutdown()
 	}
 
-	for rps := 200.0; rps <= 350.0; rps += 5.0 {
+	// for rps := 200.0; rps <= 350.0; rps += 5.0 {
+	for rps := *startRPS; rps <= *endRPS; rps += *rpsStep {
 		realRPS := runExperiment(endpoints, *runDuration, rps)
 
 		writeLatencies(realRPS, *latencyOutputFile)
