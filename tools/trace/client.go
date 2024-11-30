@@ -30,6 +30,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -54,7 +55,6 @@ const TimeseriesDBAddr = "10.96.0.84:90"
 
 var (
 	completed         int64
-	latSlice          LatencySlice
 	profSlice         LatencySlice
 	latSliceWithFunc  LatencySliceWithFunc
 	funcDurEnableFlag *bool
@@ -141,7 +141,8 @@ func readTrace(filePath string) ([]TraceEntry, error) {
 			// Skip header
 			continue
 		}
-		timeStamp, err := strconv.Atoi(record[0])
+		// Parse time as float
+		timeStamp, err := strconv.ParseFloat(record[0], 64)
 		if err != nil {
 			return nil, err
 		}
@@ -176,14 +177,18 @@ func runTraceExperiment(endpoints []*endpoint.Endpoint, trace []TraceEntry, late
 		wg.Add(1)
 		go func(entry TraceEntry) {
 			defer wg.Done()
-			delay := time.Duration(entry.Time) * time.Second
+			delay := time.Duration(entry.Time * float64(time.Second))
 			time.Sleep(delay - time.Since(startTime))
 
 			// Match endpoint directly with the full action name
 			for _, endpoint := range endpoints {
 				if endpoint.Hostname == entry.Action {
 					start := time.Now()
-					invokeServingFunction(endpoint) // Function invocation
+					if endpoint.Eventing {
+						invokeEventingFunction(endpoint) // Eventing invocation
+					} else {
+						invokeServingFunction(endpoint) // Function invocation
+					}
 					latency := time.Since(start).Milliseconds()
 
 					// Record latency
@@ -202,10 +207,13 @@ func runTraceExperiment(endpoints []*endpoint.Endpoint, trace []TraceEntry, late
 
 	wg.Wait()
 	log.Println("Trace-based experiment completed.")
+
+	// Write latencies to file
+	writeLatenciesWithFunc(latencyOutputFile)
 }
 
 type TraceEntry struct {
-	Time   int
+	Time   float64
 	Action string
 }
 
@@ -217,47 +225,6 @@ func readEndpoints(path string) (endpoints []*endpoint.Endpoint, _ error) {
 	if err := json.Unmarshal(data, &endpoints); err != nil {
 		return nil, err
 	}
-	return
-}
-
-func runExperiment(endpoints []*endpoint.Endpoint, runDuration int, targetRPS float64) (realRPS float64) {
-	var issued int
-
-	Start(TimeseriesDBAddr, endpoints, workflowIDs)
-
-	timeout := time.After(time.Duration(runDuration) * time.Second)
-	d := time.Duration(1000000/targetRPS) * time.Microsecond
-	if d <= 0 {
-		log.Fatalln("Target RPS is too high")
-	}
-	tick := time.Tick(d)
-	start := time.Now()
-loop:
-	for {
-		ep := endpoints[issued%len(endpoints)]
-		if ep.Eventing {
-			go invokeEventingFunction(ep)
-		} else {
-			go invokeServingFunction(ep)
-		}
-		issued++
-
-		select {
-		case <-timeout:
-			break loop
-		case <-tick:
-			continue
-		}
-	}
-
-	duration := time.Since(start).Seconds()
-	realRPS = float64(completed) / duration
-	// addDurationsWithFunc(End()) // FIXME
-	// last element of endpoints is the function name of the last invocation
-	addDurationsWithFunc([]string{endpoints[len(endpoints)-1].Hostname}, []time.Duration{time.Since(start)})
-	log.Infof("Issued / completed requests: %d, %d", issued, completed)
-	log.Infof("Real / target RPS: %.2f / %v", realRPS, targetRPS)
-	log.Println("Experiment finished!")
 	return
 }
 
@@ -327,6 +294,7 @@ type LatencySlice struct {
 }
 
 type LatencyRecord struct {
+	invoked  int64
 	latency  int64
 	funcName string
 }
@@ -340,32 +308,19 @@ func startMeasurement(msg string) (string, time.Time) {
 	return msg, time.Now()
 }
 
-// func getDuration(msg string, start time.Time) {
-// 	latency := time.Since(start)
-// 	log.Debugf("Invoked %v in %v usec\n", msg, latency.Microseconds())
-// 	addDurations([]time.Duration{latency})
-// }
-
-// func addDurations(ds []time.Duration) {
-// 	latSlice.Lock()
-// 	for _, d := range ds {
-// 		latSlice.slice = append(latSlice.slice, d.Microseconds())
-// 	}
-// 	latSlice.Unlock()
-// }
-
 func getDurationWithFunc(msg string, start time.Time) {
 	latency := time.Since(start)
 	log.Debugf("Invoked %v in %v usec\n", msg, latency.Microseconds())
-	addDurationsWithFunc([]string{msg}, []time.Duration{latency})
+	addDurationsWithFunc(start, []string{msg}, []time.Duration{latency})
 }
 
-func addDurationsWithFunc(msg []string, ds []time.Duration) {
+func addDurationsWithFunc(start time.Time, msg []string, ds []time.Duration) {
 	log.Debugf("%v : %v\n", msg, ds)
 	latSliceWithFunc.Lock()
 	for _, d := range ds {
 		for _, m := range msg {
 			latSliceWithFunc.slice = append(latSliceWithFunc.slice, LatencyRecord{
+				invoked:  start.UnixMilli(),
 				funcName: m,
 				latency:  d.Microseconds(),
 			})
@@ -374,37 +329,16 @@ func addDurationsWithFunc(msg []string, ds []time.Duration) {
 	latSliceWithFunc.Unlock()
 }
 
-// func writeLatencies(rps float64, latencyOutputFile string) {
-// 	latSlice.Lock()
-// 	defer latSlice.Unlock()
-
-// 	fileName := fmt.Sprintf("rps%.2f_%s", rps, latencyOutputFile)
-// 	log.Info("The measured latencies are saved in ", fileName)
-
-// 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-
-// 	if err != nil {
-// 		log.Fatal("Failed creating file: ", err)
-// 	}
-
-// 	datawriter := bufio.NewWriter(file)
-
-// 	for _, lat := range latSlice.slice {
-// 		_, err := datawriter.WriteString(strconv.FormatInt(lat, 10) + "\n")
-// 		if err != nil {
-// 			log.Fatal("Failed to write the latencies to a file ", err)
-// 		}
-// 	}
-
-// 	datawriter.Flush()
-// 	file.Close()
-// }
-
-func writeLatenciesWithFunc(rps float64, latencyOutputFile string) {
+func writeLatenciesWithFunc(latencyOutputFile string) {
 	latSliceWithFunc.Lock()
 	defer latSliceWithFunc.Unlock()
 
-	fileName := fmt.Sprintf("rps%.2f_%s", rps, latencyOutputFile)
+	// Sort slice by invoked time
+	sort.Slice(latSliceWithFunc.slice, func(i, j int) bool {
+		return latSliceWithFunc.slice[i].invoked < latSliceWithFunc.slice[j].invoked
+	})
+
+	fileName := latencyOutputFile
 	log.Info("The measured latencies are saved in ", fileName)
 
 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
