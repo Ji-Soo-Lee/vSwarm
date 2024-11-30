@@ -6,14 +6,39 @@
             "count": 1
         },
         {
+            "name": "chameleon",
+            "file": "chameleon.yaml",
+            "count": 1
+        },
+        {
+            "name": "lr-training",
+            "file": "lr_training.yaml",
+            "count": 1
+        },
+        {
+            "name": "json-serdes",
+            "file": "json_serdes.yaml",
+            "count": 1
+        },
+        {
             "name": "pyaes",
             "file": "pyaes.yaml",
-            "count": 2
+            "count": 1
+        },
+        {
+            "name": "image-rotate",
+            "file": "image_rotate.yaml",
+            "count": 1
+        },
+        {
+            "name": "lr-serving",
+            "file": "lr_serving.yaml",
+            "count": 1
         },
         {
             "name": "rnn-serving",
             "file": "rnn_serving.yaml",
-            "count": 3
+            "count": 1
         }
     ]
 }
