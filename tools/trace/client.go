@@ -179,8 +179,9 @@ func runTraceExperiment(endpoints []*endpoint.Endpoint, trace []TraceEntry, late
 			delay := time.Duration(entry.Time) * time.Second
 			time.Sleep(delay - time.Since(startTime))
 
+			// Match endpoint directly with the full action name
 			for _, endpoint := range endpoints {
-				if strings.Contains(endpoint.Hostname, entry.Action) {
+				if endpoint.Hostname == entry.Action {
 					start := time.Now()
 					invokeServingFunction(endpoint) // Function invocation
 					latency := time.Since(start).Milliseconds()
