@@ -67,7 +67,7 @@ var (
 
 func main() {
 	endpointsFile := flag.String("endpointsFile", "endpoints.json", "File with endpoints' metadata")
-	traceFile = flag.String("traceFile", "load_trace.csv", "Trace file to schedule invocations")
+	traceFile = flag.String("traceFile", "./tools/trace/load_trace.csv", "Trace file to schedule invocations")
 	latencyOutputFile := flag.String("latf", "lat.csv", "CSV file for the latency measurements in microseconds")
 	funcDurationOutputFile := flag.String("durf", "dur.csv", "CSV file for the function duration measurements in microseconds")
 	funcDurEnableFlag = flag.Bool("profile", false, "Enable function duration profiling")
@@ -157,6 +157,21 @@ func runTraceExperiment(endpoints []*endpoint.Endpoint, trace []TraceEntry, late
 	var wg sync.WaitGroup
 	startTime := time.Now()
 
+	// Create the latency output file
+	latencyFile, err := os.Create(latencyOutputFile)
+	if err != nil {
+		log.Fatalf("Error creating latency output file: %v", err)
+	}
+	defer latencyFile.Close()
+
+	writer := csv.NewWriter(latencyFile)
+	defer writer.Flush()
+
+	// Write header to latency file
+	if err := writer.Write([]string{"timestamp", "function", "latency_ms"}); err != nil {
+		log.Fatalf("Error writing header to latency file: %v", err)
+	}
+
 	for _, entry := range trace {
 		wg.Add(1)
 		go func(entry TraceEntry) {
@@ -166,7 +181,18 @@ func runTraceExperiment(endpoints []*endpoint.Endpoint, trace []TraceEntry, late
 
 			for _, endpoint := range endpoints {
 				if strings.Contains(endpoint.Hostname, entry.Action) {
-					invokeServingFunction(endpoint)
+					start := time.Now()
+					invokeServingFunction(endpoint) // Function invocation
+					latency := time.Since(start).Milliseconds()
+
+					// Record latency
+					record := []string{
+						fmt.Sprintf("%d", time.Since(startTime).Milliseconds()),
+						entry.Action,
+						fmt.Sprintf("%d", latency),
+					}
+					writer.Write(record)
+					writer.Flush()
 					break
 				}
 			}
